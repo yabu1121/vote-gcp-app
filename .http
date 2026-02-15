@@ -1,0 +1,12 @@
+@baseUrl = http://localhost:3000
+GET {{baseUrl}}/api/hello
+
+###
+
+POST {{baseUrl}}/api/create
+Content-Type: application/json
+
+{
+  "title": "好きなプログラミング言語は？",
+  "choices": ["JavaScript", "Python", "Go", "Rust"]
+}
