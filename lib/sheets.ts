@@ -105,7 +105,8 @@ export const updateLike = async (id: string, increment: boolean) => {
   return null;
 };
 
-export const getQuestionnaires = async (): Promise<QuestionnaireWithStats[]> => {
+// Update signature
+export const getQuestionnaires = async (options?: { page?: number; limit?: number; sort?: 'latest' | 'popular' }): Promise<QuestionnaireWithStats[]> => {
   const doc = await getDoc();
 
   // Load headers for all sheets we might need (just in case)
@@ -141,10 +142,11 @@ export const getQuestionnaires = async (): Promise<QuestionnaireWithStats[]> => 
     }
   });
 
-  return qRows.map((row) => {
+  // Helper to process a single row
+  const processRow = (row: any): QuestionnaireWithStats => {
     const rawData = row.toObject();
 
-    // Handle likes parsing safely
+    // Handle likes
     let likes = 0;
     try {
       likes = parseInt(rawData.likes || '0', 10);
@@ -155,7 +157,7 @@ export const getQuestionnaires = async (): Promise<QuestionnaireWithStats[]> => 
 
     const data = {
       ...rawData,
-      choices: rawData.choices,
+      choices: rawData.choices, // string at this point
       owner_email: rawData.owner_email,
       owner_name: rawData.owner_name,
       owner_image: rawData.owner_image,
@@ -205,7 +207,50 @@ export const getQuestionnaires = async (): Promise<QuestionnaireWithStats[]> => 
       stats,
       counts,
     };
-  });
+  };
+
+  // Logic for Pagination/Sorting
+  let processed: QuestionnaireWithStats[] = [];
+
+  // Strategy:
+  // If Sort is 'popular', we MUST calculate stats for ALL rows first, then sort, then slice.
+  // If Sort is 'latest', we can reverse Q rows, slice, THEN calculate stats for only sliced (Optimization).
+  // If NO pagination (Search), process all.
+
+  const { page, limit = 20, sort = 'latest' } = options || {};
+
+  if (!page) {
+    // No pagination - Return ALL (Processed)
+    // Default Latest (Reverse of Google Sheets Append)
+    processed = qRows.map(processRow).reverse();
+    // If sort requested 'popular' (though search usually filters client side, but let's support it)
+    if (sort === 'popular') {
+      processed.sort((a, b) => (b.totalResponses || 0) - (a.totalResponses || 0));
+    }
+    return processed;
+  }
+
+  // Pagination Active
+  if (sort === 'popular') {
+    // Heavy path: Process ALL to sort by popularity
+    processed = qRows.map(processRow);
+    processed.sort((a, b) => (b.likes || 0) - (a.likes || 0)); // Sort by Likes or TotalResponses? Usually Popular implies Votes? Or Likes? 
+    // Current timeline implementation sorted by totalResponses. Let's stick to that, or both?
+    // Step 683 timeline sorts by `totalResponses`.
+    // Let's us totalResponses for consistency.
+    processed.sort((a, b) => (b.totalResponses || 0) - (a.totalResponses || 0));
+
+    const start = (page - 1) * limit;
+    return processed.slice(start, start + limit);
+  } else {
+    // Improved Latest path: Reverse Q rows, Slice, THEN Process
+    // qRows is old->new. Reverse -> new->old.
+    let targetRows = [...qRows].reverse();
+    const start = (page - 1) * limit;
+    targetRows = targetRows.slice(start, start + limit);
+
+    return targetRows.map(processRow);
+  }
 };
 
 // Responses

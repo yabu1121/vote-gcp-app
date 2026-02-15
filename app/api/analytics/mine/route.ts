@@ -76,13 +76,13 @@ export async function GET() {
 
     // Format for Recharts
     const dailyData = Object.keys(dailyCounts).sort().map(date => ({
-      date: date.slice(5), // MM-DD
-      votes: dailyCounts[date]
+      name: date.slice(5), // MM-DD
+      total: dailyCounts[date]
     }));
 
     return NextResponse.json({
-      daily: dailyData,
-      total,
+      dailyStats: dailyData,
+      totalVotes: total,
       today,
       week,
       month

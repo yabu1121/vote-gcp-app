@@ -1,20 +1,36 @@
 
 "use client";
 
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function CreatePoll() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   const [title, setTitle] = useState("");
-  // デフォルトで2つの選択肢
   const [choices, setChoices] = useState<string[]>(["", ""]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/");
+    }
+  }, [status, router]);
+
+  const handleAddChoice = () => {
+    setChoices([...choices, ""]);
+  };
+
+  const handleRemoveChoice = (index: number) => {
+    if (choices.length > 2) {
+      const newChoices = choices.filter((_, i) => i !== index);
+      setChoices(newChoices);
+    }
+  };
 
   const handleChoiceChange = (index: number, value: string) => {
     const newChoices = [...choices];
@@ -22,146 +38,135 @@ export default function CreatePoll() {
     setChoices(newChoices);
   };
 
-  const addChoice = () => {
-    setChoices([...choices, ""]);
-  };
-
-  const removeChoice = (index: number) => {
-    if (choices.length <= 2) {
-      alert("少なくとも2つの選択肢が必要です。");
-      return;
-    }
-    const newChoices = choices.filter((_, i) => i !== index);
-    setChoices(newChoices);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    // 空白の選択肢を除去
-    const cleanChoices = choices
-      .map(c => c.trim())
-      .filter(c => c !== "");
-
-    if (!title.trim()) {
-      alert("タイトルを入力してください。");
+    if (!title.trim() || choices.some((c) => !c.trim())) {
+      setError("Please fill in all fields.");
+      setLoading(false);
       return;
     }
-    if (cleanChoices.length < 2) {
-      alert("少なくとも2つの有効な選択肢を入力してください。");
-      return;
-    }
-
-    setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          choices: cleanChoices
-        }),
+      const res = await fetch("/api/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, choices }),
       });
 
       if (res.ok) {
-        // ログイン状態ならダッシュボードへ、未ログインならタイムラインへ
-        if (session) {
-          router.push("/dashboard");
-        } else {
-          router.push("/timeline");
-        }
+        router.push("/timeline");
       } else {
-        const error = await res.json();
-        alert(`Error: ${error.error}`);
+        setError("Failed to create poll.");
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to create poll.");
+      setError("An error occurred.");
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-yellow-50 font-sans text-gray-800">
-      <div className="max-w-6xl mx-auto">
-        <Navbar />
-      </div>
+  if (status === "loading") return <div className="min-h-screen bg-base-primary flex items-center justify-center font-bold text-middle-gray">Wait a sec...</div>;
 
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="bg-white rounded-3xl p-8 shadow-xl border-4 border-yellow-200">
-          <h1 className="text-3xl font-black text-gray-800 mb-6 text-center transform -rotate-1">
-            <span className="bg-red-100 px-4 py-1 rounded-lg text-red-500">NEW</span> アンケートを作る
+  return (
+    <div className="min-h-screen bg-base-primary text-text font-sans">
+      <Navbar />
+
+      <main className="container mx-auto px-4 py-12 max-w-2xl">
+        <div className="bg-white rounded-3xl p-8 md:p-12 shadow-xl shadow-base-secondary border border-white">
+          <h1 className="text-3xl font-black text-dark-gray mb-8 text-center flex items-center justify-center gap-3">
+            <span className="bg-main text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-main/30">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </span>
+            Create New Poll
           </h1>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-gray-700 font-bold mb-2 ml-1">タイトル</label>
+          {error && (
+            <div className="bg-red-50 text-red-500 font-bold p-4 rounded-xl mb-6 text-center border-l-4 border-red-400 animate-[shake_0.5s_ease-in-out]">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="group">
+              <label className="block text-sm font-bold text-middle-gray mb-2 ml-1 uppercase tracking-wide group-focus-within:text-main transition-colors">
+                Question
+              </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="例: 次の旅行、どこ行きたい？"
-                className="w-full border-2 border-gray-200 rounded-xl p-4 text-lg focus:outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100 transition-all font-bold placeholder-gray-300"
+                placeholder="What's your question?"
+                className="w-full px-6 py-4 rounded-xl border-2 border-base-secondary bg-base-primary/30 text-dark-gray font-bold text-xl placeholder-middle-gray/50 focus:outline-none focus:border-main focus:bg-white focus:ring-4 focus:ring-main/10 transition-all duration-300 shadow-inner focus:shadow-lg"
               />
             </div>
 
-            <div className="space-y-3">
-              <label className="block text-gray-700 font-bold ml-1 flex justify-between">
-                <span>選択肢</span>
-                <span className="text-xs text-gray-400 font-normal self-end">最低2つ必要です</span>
+            <div className="space-y-4">
+              <label className="block text-sm font-bold text-middle-gray mb-2 ml-1 uppercase tracking-wide">
+                Choices
               </label>
-
-              {choices.map((choice, index) => (
-                <div key={index} className="flex gap-2 group">
-                  <div className="relative flex-1">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-300 font-bold">
-                      {index + 1}.
-                    </span>
-                    <input
-                      type="text"
-                      value={choice}
-                      onChange={(e) => handleChoiceChange(index, e.target.value)}
-                      placeholder={`選択肢 ${index + 1}`}
-                      className="w-full border-2 border-gray-200 rounded-xl p-3 pl-10 focus:outline-none focus:border-yellow-400 focus:ring-4 focus:ring-yellow-100 transition-all font-medium"
-                    />
+              <div className="space-y-3">
+                {choices.map((choice, index) => (
+                  <div key={index} className="flex gap-3 animate-[slide-in-bottom_0.3s_ease-out]">
+                    <div className="flex-1 relative group">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-base-secondary text-middle-gray flex items-center justify-center font-bold text-xs group-focus-within:bg-main group-focus-within:text-white transition-colors">
+                        {index + 1}
+                      </div>
+                      <input
+                        type="text"
+                        value={choice}
+                        onChange={(e) => handleChoiceChange(index, e.target.value)}
+                        placeholder={`Option ${index + 1}`}
+                        className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-base-secondary bg-white text-dark-gray font-medium focus:outline-none focus:border-main focus:ring-4 focus:ring-main/10 transition-all shadow-sm focus:shadow-md"
+                      />
+                    </div>
+                    {choices.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveChoice(index)}
+                        className="p-3 text-middle-gray hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90 border-2 border-transparent hover:border-red-200"
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
-                  {choices.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeChoice(index)}
-                      className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                      title="削除"
-                    >
-                      ✕
-                    </button>
-                  )}
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddChoice}
+                className="w-full py-3 mt-4 text-main bg-conversation border-2 border-main/20 hover:border-main hover:bg-main hover:text-white rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 group"
+              >
+                <div className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center group-hover:bg-white group-hover:text-main group-hover:border-transparent transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-3 h-3">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
                 </div>
-              ))}
+                Add Choice
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={addChoice}
-              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-yellow-400 hover:text-yellow-600 hover:bg-yellow-50 transition-all flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">+</span> 選択肢を追加する
-            </button>
-
-            <div className="pt-4 flex gap-4">
-              <Link
-                href="/"
-                className="flex-1 py-4 text-center text-gray-500 font-bold hover:text-gray-700 hover:bg-gray-100 rounded-2xl transition-colors"
-              >
-                キャンセル
-              </Link>
+            <div className="pt-6 border-t border-base-secondary">
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="flex-[2] py-4 bg-red-500 text-white text-lg font-black rounded-2xl hover:bg-red-600 transition-all shadow-[0_4px_0_rgb(185,28,28)] hover:shadow-[0_2px_0_rgb(185,28,28)] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px] border-2 border-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+                className={`w-full py-4 bg-gradient-to-r from-main to-purple-500 text-white rounded-full font-black text-xl shadow-xl shadow-main/40 hover:shadow-2xl hover:shadow-main/60 hover:-translate-y-1 transition-all active:scale-95 active:translate-y-0 duration-300 relative overflow-hidden ${loading ? "opacity-70 cursor-wait" : ""}`}
               >
-                {isSubmitting ? '作成中...' : 'アンケートを公開する！ 🚀'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    Creating...
+                  </span>
+                ) : (
+                  "Create Poll"
+                )}
               </button>
             </div>
           </form>
