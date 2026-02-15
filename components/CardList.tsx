@@ -10,7 +10,7 @@ const CardList = () => {
   return (
     <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       {items.map((item) => (
-        <Card key={item} title={`${dummyProps.title} ${item}`} choices={dummyProps.choices} />
+        <Card key={item} id={`dummy-${item}`} title={`${dummyProps.title} ${item}`} choices={dummyProps.choices} />
       ))}
     </div>
   )
