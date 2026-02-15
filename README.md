@@ -1,7 +1,8 @@
-front: next.js
-back: hono
-db: drizzle
+# front: next.js
+# back: node.js
+# db: google sheets
 
-```drizzle
+```
+# drizzle
 npx drizzle-kit push
 ```
