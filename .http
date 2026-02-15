@@ -15,5 +15,17 @@ Content-Type: application/json
 
 
 ###
-GET {{baseUrl}}/api/test-sheets
+
+###
+POST {{baseUrl}}/api/answer
+Content-Type: application/json
+
+{
+  "questionnaire_id": "ec7a43a6-0c96-4fee-a661-fcfe41ed9c06",
+  "answer": "Go"
+}
+
+###
+GET {{baseUrl}}/api/list
+
 
