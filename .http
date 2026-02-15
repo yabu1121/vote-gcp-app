@@ -10,3 +10,7 @@ Content-Type: application/json
   "title": "好きなプログラミング言語は？",
   "choices": ["JavaScript", "Python", "Go", "Rust"]
 }
+
+###
+
+GET {{baseUrl}}/api/timeline
