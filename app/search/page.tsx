@@ -16,7 +16,7 @@ type Questionnaire = {
   owner_name?: string;
   owner_image?: string;
   created_at?: string;
-  likes?: number; // Add likes
+  likes?: number;
 };
 
 type TrendWord = {
